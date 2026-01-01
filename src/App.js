@@ -22,6 +22,7 @@ import AdminPolls from './pages/Admin/AdminPolls';
 import AdminAnnouncements from './pages/Admin/AdminAnnouncements';
 import AdminComplaints from './pages/Admin/AdminComplaints';
 import AdminPayments from './pages/Admin/AdminPayments';
+import Alerts from './pages/Alerts/Alerts';
 
 function App() {
   return (
@@ -94,6 +95,12 @@ function App() {
           <Route path="/complaints" element={
             <ProtectedRoute>
               <Complaints />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/alerts" element={
+            <ProtectedRoute>
+              <Alerts />
             </ProtectedRoute>
           } />
           

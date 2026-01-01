@@ -48,6 +48,9 @@ const Sidebar = () => {
             <Link to="/admin/payments" className={`sidebar-item ${isActive('/admin/payments')}`}>
               Payments
             </Link>
+            <Link to="/alerts" className={`sidebar-item ${isActive('/alerts')}`}>
+              Alerts
+            </Link>
           </>
         ) : (
           <>
@@ -74,6 +77,9 @@ const Sidebar = () => {
             </Link>
             <Link to="/gamification" className={`sidebar-item ${isActive('/gamification')}`}>
               My Points
+            </Link>
+            <Link to="/alerts" className={`sidebar-item ${isActive('/alerts')}`}>
+              Alerts
             </Link>
           </>
         )}
