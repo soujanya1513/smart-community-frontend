@@ -20,7 +20,7 @@ const Sidebar = () => {
         <h3>Smart Community</h3>
         <p>{user?.fullName}</p>
         <p style={{ fontSize: '11px', marginTop: '5px' }}>
-          {user?.role === 'admin' ? 'Administrator' : 'Resident'}
+          {user?.role === 'admin' ? 'Administrator' : user?.role === 'security' ? 'Security Guard' : 'Resident'}
         </p>
       </div>
       
@@ -47,6 +47,18 @@ const Sidebar = () => {
             </Link>
             <Link to="/admin/payments" className={`sidebar-item ${isActive('/admin/payments')}`}>
               Payments
+            </Link>
+            <Link to="/admin/alerts" className={`sidebar-item ${isActive('/admin/alerts')}`}>
+              🚨 Broadcast Alert
+            </Link>
+            <Link to="/alerts" className={`sidebar-item ${isActive('/alerts')}`}>
+              My Alerts
+            </Link>
+          </>
+        ) : user?.role === 'security' ? (
+          <>
+            <Link to="/security" className={`sidebar-item ${isActive('/security')}`}>
+              Dashboard
             </Link>
             <Link to="/alerts" className={`sidebar-item ${isActive('/alerts')}`}>
               Alerts

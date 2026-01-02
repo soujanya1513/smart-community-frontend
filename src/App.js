@@ -22,6 +22,7 @@ import AdminPolls from './pages/Admin/AdminPolls';
 import AdminAnnouncements from './pages/Admin/AdminAnnouncements';
 import AdminComplaints from './pages/Admin/AdminComplaints';
 import AdminPayments from './pages/Admin/AdminPayments';
+import AdminAlerts from './pages/Admin/AdminAlerts';
 import Alerts from './pages/Alerts/Alerts';
 
 function App() {
@@ -143,6 +144,12 @@ function App() {
           <Route path="/admin/payments" element={
             <ProtectedRoute adminOnly>
               <AdminPayments />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/admin/alerts" element={
+            <ProtectedRoute adminOnly>
+              <AdminAlerts />
             </ProtectedRoute>
           } />
           

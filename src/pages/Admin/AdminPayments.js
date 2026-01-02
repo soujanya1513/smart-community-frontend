@@ -4,6 +4,7 @@ import api from '../../services/api';
 
 const AdminPayments = () => {
   const [payments, setPayments] = useState([]);
+  const [message, setMessage] = useState('');
 
   useEffect(() => {
     fetchPayments();
@@ -18,6 +19,17 @@ const AdminPayments = () => {
     }
   };
 
+  const handleVerify = async (id, status) => {
+    try {
+      await api.verifyPayment(id, status);
+      setMessage(`Payment ${status === 'completed' ? 'approved' : 'rejected'} successfully`);
+      fetchPayments();
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      setMessage('Failed to update payment status');
+    }
+  };
+
   const totalAmount = payments.reduce((sum, payment) => 
     payment.status === 'completed' ? sum + payment.amount : sum, 0
   );
@@ -26,6 +38,12 @@ const AdminPayments = () => {
     <Layout title="Payment Management">
       <div className="content-card">
         <h2>Payment Overview</h2>
+        
+        {message && (
+          <div className="alert alert-success" style={{ marginBottom: '20px' }}>
+            {message}
+          </div>
+        )}
         
         <div className="grid grid-3" style={{ marginBottom: '30px' }}>
           <div className="stat-card">
@@ -54,10 +72,12 @@ const AdminPayments = () => {
                 <th>User</th>
                 <th>Block/House</th>
                 <th>Transaction ID</th>
+                <th>UTR</th>
                 <th>Amount</th>
-                <th>Month</th>
+                <th>Payment For</th>
                 <th>Status</th>
                 <th>Date</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -68,7 +88,8 @@ const AdminPayments = () => {
                     <small>{payment.userId.email}</small>
                   </td>
                   <td>{payment.userId.block}/{payment.userId.houseNumber}</td>
-                  <td>{payment.transactionId}</td>
+                  <td><small>{payment.transactionId}</small></td>
+                  <td><strong>{payment.utr || 'N/A'}</strong></td>
                   <td>₹{payment.amount}</td>
                   <td>{payment.month}</td>
                   <td>
@@ -77,6 +98,30 @@ const AdminPayments = () => {
                     </span>
                   </td>
                   <td>{new Date(payment.createdAt).toLocaleDateString()}</td>
+                  <td>
+                    {payment.status === 'pending' ? (
+                      <div style={{ display: 'flex', gap: '5px' }}>
+                        <button
+                          className="btn btn-sm btn-success"
+                          onClick={() => handleVerify(payment._id, 'completed')}
+                          title="Approve Payment"
+                        >
+                          ✓ Approve
+                        </button>
+                        <button
+                          className="btn btn-sm btn-danger"
+                          onClick={() => handleVerify(payment._id, 'failed')}
+                          title="Reject Payment"
+                        >
+                          ✗ Reject
+                        </button>
+                      </div>
+                    ) : (
+                      <span style={{ color: '#999' }}>
+                        {payment.status === 'completed' ? 'Verified' : 'Rejected'}
+                      </span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

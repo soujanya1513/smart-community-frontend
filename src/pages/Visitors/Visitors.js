@@ -62,14 +62,9 @@ const Visitors = () => {
       <div className="content-card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2 style={{ margin: 0 }}>My Visitors</h2>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <Link to="/visitors/verify" className="btn btn-secondary">
-              Verify Visitor (Security)
-            </Link>
-            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-              Generate QR for Visitor
-            </button>
-          </div>
+          <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+            Generate QR for Visitor
+          </button>
         </div>
 
         <div className="table-container">

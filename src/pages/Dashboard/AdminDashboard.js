@@ -124,6 +124,13 @@ const AdminDashboard = () => {
           >
             View Payments
           </button>
+          <button 
+            className="btn btn-danger"
+            onClick={() => window.location.href = '/admin/alerts'}
+            style={{ padding: '20px', background: '#dc3545', fontWeight: 'bold' }}
+          >
+            🚨 Broadcast Alert
+          </button>
         </div>
       </div>
 

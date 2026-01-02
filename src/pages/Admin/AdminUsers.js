@@ -7,6 +7,7 @@ const AdminUsers = () => {
   const [message, setMessage] = useState('');
   const [editingAmountId, setEditingAmountId] = useState(null);
   const [amountInput, setAmountInput] = useState('');
+  const [descriptionInput, setDescriptionInput] = useState('');
 
   useEffect(() => {
     fetchUsers();
@@ -49,12 +50,14 @@ const AdminUsers = () => {
   const handleEditAmount = (user) => {
     setEditingAmountId(user._id);
     setAmountInput(user.payableAmount || '');
+    setDescriptionInput(user.paymentDescription || '');
   };
 
   const handleSaveAmount = async (user) => {
     try {
       await api.setPayableAmount(user._id, Number(amountInput));
-      setMessage('Payable amount updated!');
+      await api.updateProfile({ paymentDescription: descriptionInput }, user._id);
+      setMessage('Payable amount and description updated!');
       setEditingAmountId(null);
       fetchUsers();
       setTimeout(() => setMessage(''), 2000);
@@ -86,6 +89,7 @@ const AdminUsers = () => {
                 <th>Role</th>
                 <th>Status</th>
                 <th>Payable Amount (₹)</th>
+                <th>Payment For</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -108,22 +112,39 @@ const AdminUsers = () => {
                   </td>
                   <td>
                     {editingAmountId === user._id ? (
-                      <>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
                         <input
                           type="number"
                           value={amountInput}
                           min="0"
                           onChange={e => setAmountInput(e.target.value)}
-                          style={{ width: 80 }}
+                          placeholder="Amount"
+                          style={{ width: '100%', padding: '5px' }}
                         />
-                        <button className="btn btn-primary btn-sm" onClick={() => handleSaveAmount(user)} style={{ marginLeft: 4 }}>Save</button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setEditingAmountId(null)} style={{ marginLeft: 2 }}>Cancel</button>
-                      </>
+                        <input
+                          type="text"
+                          value={descriptionInput}
+                          onChange={e => setDescriptionInput(e.target.value)}
+                          placeholder="e.g., January 2026 Rent"
+                          style={{ width: '100%', padding: '5px' }}
+                        />
+                        <div style={{ display: 'flex', gap: '5px' }}>
+                          <button className="btn btn-primary btn-sm" onClick={() => handleSaveAmount(user)}>Save</button>
+                          <button className="btn btn-secondary btn-sm" onClick={() => setEditingAmountId(null)}>Cancel</button>
+                        </div>
+                      </div>
                     ) : (
                       <>
-                        {user.payableAmount || 0}
+                        ₹{user.payableAmount || 0}
                         <button className="btn btn-link btn-sm" onClick={() => handleEditAmount(user)} style={{ marginLeft: 4 }}>Edit</button>
                       </>
+                    )}
+                  </td>
+                  <td>
+                    {editingAmountId === user._id ? (
+                      <small style={{ color: '#666' }}>Editing above</small>
+                    ) : (
+                      <span>{user.paymentDescription || 'Not set'}</span>
                     )}
                   </td>
                   <td>

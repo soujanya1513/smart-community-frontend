@@ -17,6 +17,10 @@ const api = {
     const res = await axios.get('/auth/me');
     return res.data.payableAmount;
   },
+  getMyPaymentDescription: async () => {
+    const res = await axios.get('/auth/me');
+    return res.data.paymentDescription || '';
+  },
   getMyUpiQrUrl: async () => {
     const res = await axios.get('/auth/me');
     return res.data.upiQrUrl;
@@ -26,7 +30,12 @@ const api = {
   getAllUsers: () => axios.get('/users'),
   approveUser: (id) => axios.put(`/users/approve/${id}`),
   denyUser: (id) => axios.put(`/users/deny/${id}`, { reason: '' }),
-  updateProfile: (data) => axios.put('/users/profile', data),
+  updateProfile: (data, userId) => {
+    if (userId) {
+      return axios.put(`/users/profile/${userId}`, data);
+    }
+    return axios.put('/users/profile', data);
+  },
 
   // Amenities
   createBooking: (data) => axios.post('/amenities', data),
@@ -49,16 +58,20 @@ const api = {
   // Alerts
   getUserAlerts: () => axios.get('/alerts'),
   markAlertAsRead: (id) => axios.put(`/alerts/${id}/read`),
+  createAlert: (data) => axios.post('/alerts', data),
 
   // Payments
   createPayment: (data) => axios.post('/payments', data),
   getUserPayments: () => axios.get('/payments/user'),
   getAllPayments: () => axios.get('/payments/all'),
+  verifyPayment: (id, status) => axios.put(`/payments/${id}/verify`, { status }),
 
   // Visitors
   generateQR: (data) => axios.post('/visitors/generate', data),
   verifyVisitor: (qrCode) => axios.post('/visitors/verify', { qrCode }),
   getUserVisitors: () => axios.get('/visitors/user'),
+  getPendingVisitors: () => axios.get('/visitors/pending'),
+  checkInVisitor: (id) => axios.put(`/visitors/checkin/${id}`),
 
   // Announcements
   createAnnouncement: (data) => axios.post('/announcements', data),

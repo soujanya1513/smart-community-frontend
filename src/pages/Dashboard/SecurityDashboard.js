@@ -1,244 +1,170 @@
-import React, { useState } from 'react';
-import jsQR from 'jsqr';
+import React, { useState, useEffect } from 'react';
 import Layout from '../../components/Layout';
 import api from '../../services/api';
 
 const SecurityDashboard = () => {
-  const [qrCode, setQrCode] = useState('');
-  const [visitor, setVisitor] = useState(null);
+  const [visitors, setVisitors] = useState([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [dragActive, setDragActive] = useState(false);
-  const [scanStatus, setScanStatus] = useState('');
+  const [qrCode, setQrCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
-  const verifyCode = async (code) => {
-    if (!code) return;
+  useEffect(() => {
+    fetchPendingVisitors();
+  }, []);
+
+  const fetchPendingVisitors = async () => {
     setLoading(true);
-    setMessage('');
-    setVisitor(null);
-
     try {
-      const response = await api.verifyVisitor(code);
-      setVisitor(response.data);
-      setMessage('✅ Visitor verified and entry approved!');
-      setQrCode('');
+      const response = await api.getPendingVisitors();
+      setVisitors(response.data);
     } catch (error) {
-      setMessage(error.response?.data?.message || 'Verification failed');
+      console.error('Error fetching visitors:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleVerify = async (e) => {
-    e.preventDefault();
-    await verifyCode(qrCode);
-  };
-
-  const decodeQrFromImage = async (file) => {
-    if (!file) throw new Error('No file received');
-    if (!file.type.startsWith('image/')) throw new Error('Please use an image file');
-
-    const imageBitmap = await createImageBitmap(file);
-
-    if (window.BarcodeDetector) {
-      const detector = new window.BarcodeDetector({ formats: ['qr_code'] });
-      const codes = await detector.detect(imageBitmap);
-      const value = codes?.[0]?.rawValue?.trim();
-      if (value) return value;
-    }
-
-    const canvas = document.createElement('canvas');
-    canvas.width = imageBitmap.width;
-    canvas.height = imageBitmap.height;
-    const ctx = canvas.getContext('2d');
-
-    if (!ctx) throw new Error('Canvas not supported in this browser');
-
-    ctx.drawImage(imageBitmap, 0, 0);
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const result = jsQR(imageData.data, imageData.width, imageData.height);
-
-    if (result?.data) return result.data.trim();
-
-    throw new Error('Could not detect a QR code in the selected image');
-  };
-
-  const handleFile = async (file) => {
-    if (!file) return;
-    setScanStatus('Scanning QR image...');
+  const handleCheckIn = async (visitorId) => {
     try {
-      const code = await decodeQrFromImage(file);
-      setQrCode(code);
-      setScanStatus('QR detected. Verifying...');
-      await verifyCode(code);
-      setScanStatus('');
-    } catch (err) {
-      setScanStatus(err.message || 'Unable to scan this file');
+      const response = await api.checkInVisitor(visitorId);
+      setMessage(`✅ ${response.data.visitor.visitorName} checked in successfully!`);
+      fetchPendingVisitors();
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Check-in failed');
+      setTimeout(() => setMessage(''), 3000);
     }
   };
 
-  const onFileInputChange = async (event) => {
-    const file = event.target.files?.[0];
-    await handleFile(file);
-    event.target.value = '';
-  };
-
-  const onDrop = async (event) => {
-    event.preventDefault();
-    setDragActive(false);
-    const file = event.dataTransfer.files?.[0];
-    await handleFile(file);
-  };
-
-  const handleClear = () => {
-    setQrCode('');
-    setVisitor(null);
-    setMessage('');
-    setScanStatus('');
+  const handleVerifyQR = async (e) => {
+    e.preventDefault();
+    if (!qrCode.trim()) return;
+    
+    setVerifying(true);
+    try {
+      const response = await api.verifyVisitor(qrCode);
+      setMessage(`✅ ${response.data.visitorName} verified and checked in!`);
+      setQrCode('');
+      fetchPendingVisitors();
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      setMessage(error.response?.data?.message || 'Invalid QR code - not found in system');
+      setTimeout(() => setMessage(''), 3000);
+    } finally {
+      setVerifying(false);
+    }
   };
 
   return (
-    <Layout title="Security Dashboard">
+    <Layout title="Security - Visitor Check-In">
       <div className="content-card">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-          <span style={{ fontSize: '32px' }}>👮</span>
-          <h2 style={{ margin: 0 }}>Security Gate - Visitor Verification</h2>
-        </div>
-
-        <div style={{ backgroundColor: '#fff3cd', padding: '15px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #ffc107' }}>
-          <h4 style={{ margin: '0 0 10px 0', color: '#856404' }}>📱 Verification Process:</h4>
-          <ol style={{ margin: '5px 0', paddingLeft: '20px', fontSize: '14px', color: '#856404' }}>
-            <li>Ask visitor to show their QR code</li>
-            <li>Drop the QR image below or tap "Choose file" to upload</li>
-            <li>We will scan the image and verify automatically</li>
-            <li>Or paste the decoded text (starts with "VISITOR-") and verify</li>
-            <li>System will display visitor details and record entry time</li>
-          </ol>
-        </div>
-
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragActive(true);
-          }}
-          onDragLeave={() => setDragActive(false)}
-          onDrop={onDrop}
-          style={{
-            border: dragActive ? '2px solid #007bff' : '2px dashed #bbb',
-            backgroundColor: dragActive ? '#e8f0fe' : '#f8f9fa',
-            padding: '24px',
-            borderRadius: '10px',
-            marginBottom: '20px',
-            textAlign: 'center',
-            transition: 'all 0.15s ease-in-out'
-          }}
-        >
-          <p style={{ margin: '0 0 10px 0', fontWeight: 'bold', fontSize: '16px' }}>
-            Drag & drop a QR image here or choose a file to scan
-          </p>
-          <input
-            id="qr-file-input"
-            type="file"
-            accept="image/*"
-            onChange={onFileInputChange}
-            style={{ display: 'none' }}
-          />
-          <label htmlFor="qr-file-input" className="btn btn-secondary" style={{ cursor: 'pointer', padding: '10px 16px' }}>
-            Choose file
-          </label>
-          <p style={{ marginTop: '12px', color: '#666', fontSize: '14px' }}>
-            Works best with clear QR photos or screenshots
-          </p>
-          {scanStatus && <p style={{ marginTop: '8px', color: '#007bff', fontWeight: 'bold' }}>{scanStatus}</p>}
-        </div>
+        <h2 style={{ marginBottom: '20px' }}>Security Gate - Visitor Verification</h2>
 
         {message && (
-          <div className={`alert ${message.includes('✅') || message.includes('success') ? 'alert-success' : 'alert-error'}`}>
+          <div className={`alert ${message.includes('✅') ? 'alert-success' : 'alert-error'}`} style={{ marginBottom: '20px' }}>
             {message}
           </div>
         )}
 
-        <form onSubmit={handleVerify} style={{ marginBottom: '30px' }}>
-          <div className="form-group">
-            <label style={{ fontSize: '16px', fontWeight: 'bold' }}>QR Code String</label>
-            <input
-              type="text"
-              value={qrCode}
-              onChange={(e) => setQrCode(e.target.value)}
-              placeholder="Paste decoded QR code here (e.g., VISITOR-1234567890-abc123)"
-              required
-              style={{ fontSize: '16px', padding: '12px' }}
-            />
-            <small style={{ color: '#666', display: 'block', marginTop: '5px' }}>
-              💡 Paste manually if scanning is blocked; the QR code string should start with "VISITOR-" followed by numbers and letters
-            </small>
+        {/* QR Code Verification Section */}
+        <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '30px', border: '2px solid #007bff' }}>
+          <h3 style={{ marginTop: 0, color: '#007bff' }}>🔍 Scan Visitor QR Code</h3>
+          
+          <div style={{ backgroundColor: '#fff3cd', padding: '15px', borderRadius: '5px', marginBottom: '20px', border: '1px solid #ffc107' }}>
+            <p style={{ margin: 0, color: '#856404', fontWeight: 'bold' }}>📱 How to scan:</p>
+            <ol style={{ marginBottom: 0, paddingLeft: '20px', color: '#856404' }}>
+              <li>Ask visitor to show their QR code on phone</li>
+              <li>Use your phone camera to scan it</li>
+              <li>Copy the text that appears (starts with "VISITOR-")</li>
+              <li>Paste it below and click Verify</li>
+            </ol>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button type="submit" className="btn btn-primary" disabled={loading} style={{ flex: 1, padding: '12px', fontSize: '16px' }}>
-              {loading ? 'Verifying...' : '✓ Verify & Approve Entry'}
+          <form onSubmit={handleVerifyQR}>
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold', fontSize: '16px' }}>QR Code Text</label>
+              <input
+                type="text"
+                value={qrCode}
+                onChange={(e) => setQrCode(e.target.value)}
+                placeholder="Paste QR code here (e.g., VISITOR-1234567890-abc123)"
+                style={{ width: '100%', padding: '15px', fontSize: '16px', borderRadius: '5px', border: '2px solid #ddd' }}
+              />
+              <small style={{ color: '#666', fontSize: '13px' }}>Only QR codes generated by residents will be accepted</small>
+            </div>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              disabled={verifying || !qrCode.trim()}
+              style={{ width: '100%', padding: '15px', fontSize: '18px', fontWeight: 'bold' }}
+            >
+              {verifying ? 'Verifying...' : '✓ Verify & Check In'}
             </button>
-            <button type="button" className="btn btn-secondary" onClick={handleClear} style={{ padding: '12px' }}>
-              Clear
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
 
-        {visitor && (
-          <div style={{ 
-            marginTop: '30px', 
-            padding: '25px', 
-            backgroundColor: '#e8f5e9', 
-            borderRadius: '10px', 
-            border: '3px solid #4CAF50',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-              <span style={{ fontSize: '40px' }}>✅</span>
-              <h3 style={{ color: '#2e7d32', margin: 0 }}>Entry Approved!</h3>
-            </div>
-            
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: '1fr 1fr', 
-              gap: '15px',
-              marginBottom: '15px' 
-            }}>
-              <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '5px' }}>
-                <strong style={{ color: '#666', fontSize: '14px' }}>Visitor Name:</strong>
-                <p style={{ margin: '5px 0 0 0', fontSize: '18px', fontWeight: 'bold' }}>{visitor.visitorName}</p>
-              </div>
-              <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '5px' }}>
-                <strong style={{ color: '#666', fontSize: '14px' }}>Phone Number:</strong>
-                <p style={{ margin: '5px 0 0 0', fontSize: '18px', fontWeight: 'bold' }}>{visitor.visitorPhone}</p>
-              </div>
-              <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '5px' }}>
-                <strong style={{ color: '#666', fontSize: '14px' }}>Check-in Time:</strong>
-                <p style={{ margin: '5px 0 0 0', fontSize: '18px', fontWeight: 'bold' }}>
-                  {new Date(visitor.entryTime).toLocaleString()}
-                </p>
-              </div>
-              <div style={{ backgroundColor: 'white', padding: '15px', borderRadius: '5px' }}>
-                <strong style={{ color: '#666', fontSize: '14px' }}>Verified By:</strong>
-                <p style={{ margin: '5px 0 0 0', fontSize: '18px', fontWeight: 'bold' }}>{visitor.verifiedBy}</p>
-              </div>
-            </div>
-            
-            <div style={{ 
-              padding: '15px', 
-              backgroundColor: '#4CAF50', 
-              color: 'white',
-              borderRadius: '5px',
-              textAlign: 'center',
-              fontSize: '18px',
-              fontWeight: 'bold'
-            }}>
-              🚪 VISITOR MAY ENTER
-            </div>
-          </div>
-        )}
+        {/* Expected Visitors Table */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h3 style={{ margin: 0 }}>Expected Visitors Today (Backup Method)</h3>
+          <button className="btn btn-secondary" onClick={fetchPendingVisitors} disabled={loading}>
+            {loading ? 'Refreshing...' : '🔄 Refresh'}
+          </button>
+        </div>
 
-        {/* Removed duplicate bottom placeholder for scan instructions */}
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Visitor Name</th>
+                <th>Phone</th>
+                <th>Purpose</th>
+                <th>Resident</th>
+                <th>Block/House</th>
+                <th>Resident Phone</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visitors.map((visitor) => (
+                <tr key={visitor._id}>
+                  <td style={{ fontWeight: 'bold' }}>{visitor.visitorName}</td>
+                  <td>{visitor.visitorPhone}</td>
+                  <td>{visitor.purpose}</td>
+                  <td>{visitor.residentId?.fullName || 'N/A'}</td>
+                  <td>{visitor.residentId ? `${visitor.residentId.block}-${visitor.residentId.houseNumber}` : 'N/A'}</td>
+                  <td>{visitor.residentId?.phone || 'N/A'}</td>
+                  <td>
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => handleCheckIn(visitor._id)}
+                      style={{ padding: '8px 16px', fontSize: '14px' }}
+                    >
+                      ✓ Check In
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {visitors.length === 0 && !loading && (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '30px', color: '#666' }}>
+                    {loading ? 'Loading visitors...' : 'No pending visitors for today'}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#e8f5e9', borderRadius: '5px', border: '1px solid #4CAF50' }}>
+          <h4 style={{ marginTop: 0, color: '#2e7d32' }}>✅ Security Features:</h4>
+          <ul style={{ marginBottom: 0, paddingLeft: '20px', color: '#2e7d32' }}>
+            <li>QR codes are validated against resident-generated codes only</li>
+            <li>Invalid or fake QR codes will be rejected</li>
+            <li>Each QR code can only be used once</li>
+            <li>Use table check-in only if visitor doesn't have QR code</li>
+          </ul>
+        </div>
       </div>
     </Layout>
   );

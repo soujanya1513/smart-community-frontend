@@ -8,16 +8,17 @@ const Payments = () => {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     amount: '',
-    month: ''
+    month: '',
+    utr: '' // UPI Transaction Reference
   });
   const [payableAmount, setPayableAmount] = useState(null);
-  // Removed unused upiQrUrl state
+  const [paymentDescription, setPaymentDescription] = useState('');
   const [message, setMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     fetchPayments();
     fetchPayableAmount();
-    // Removed fetchUpiQrUrl();
   }, []);
 
 
@@ -25,10 +26,13 @@ const Payments = () => {
   const fetchPayableAmount = async () => {
     try {
       const amount = await api.getMyPayableAmount();
+      const description = await api.getMyPaymentDescription();
       setPayableAmount(amount);
-      setFormData((prev) => ({ ...prev, amount: amount || '' }));
+      setPaymentDescription(description);
+      setFormData((prev) => ({ ...prev, amount: amount || '', month: description || '' }));
     } catch (err) {
       setPayableAmount(null);
+      setPaymentDescription('');
     }
   };
 
@@ -42,26 +46,29 @@ const Payments = () => {
   };
 
   const handleChange = (e) => {
-    // Only allow month to be changed, not amount
-    if (e.target.name === 'month') {
-      setFormData({ ...formData, month: e.target.value });
-    }
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    if (isSubmitting) return; // Prevent double submission
+    
+    setIsSubmitting(true);
     try {
       await api.createPayment(formData);
-      setMessage('Payment successful!');
+      setMessage('Payment request submitted! Waiting for admin verification.');
       fetchPayments();
       setTimeout(() => {
         setShowModal(false);
         setMessage('');
-        setFormData({ amount: '', month: '' });
-      }, 1500);
+        setFormData({ amount: '', month: '', utr: '' });
+        setIsSubmitting(false);
+      }, 2000);
     } catch (error) {
-      setMessage('Payment failed');
+      setMessage('Payment submission failed');
+      setIsSubmitting(false);
     }
   };
 
@@ -103,7 +110,7 @@ Thank you for your payment!
               <tr>
                 <th>Transaction ID</th>
                 <th>Amount</th>
-                <th>Month</th>
+                <th>Payment For</th>
                 <th>Status</th>
                 <th>Date</th>
                 <th>Action</th>
@@ -122,12 +129,18 @@ Thank you for your payment!
                   </td>
                   <td>{new Date(payment.createdAt).toLocaleDateString()}</td>
                   <td>
-                    <button
-                      className="btn btn-sm btn-primary"
-                      onClick={() => downloadReceipt(payment)}
-                    >
-                      Download
-                    </button>
+                    {payment.status === 'completed' ? (
+                      <button
+                        className="btn btn-sm btn-primary"
+                        onClick={() => downloadReceipt(payment)}
+                      >
+                        Download Receipt
+                      </button>
+                    ) : (
+                      <span style={{ color: '#999' }}>
+                        {payment.status === 'pending' ? 'Awaiting Verification' : 'Payment Failed'}
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -154,42 +167,13 @@ Thank you for your payment!
             
             <form onSubmit={handleSubmit}>
               <div className="form-group">
-                <label>Month</label>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <select
-                    name="month"
-                    value={formData.month}
-                    onChange={handleChange}
-                    required
-                    style={{ flex: 1, padding: '10px', fontSize: '16px' }}
-                  >
-                    <option value="">Select month</option>
-                    <option value="01">January</option>
-                    <option value="02">February</option>
-                    <option value="03">March</option>
-                    <option value="04">April</option>
-                    <option value="05">May</option>
-                    <option value="06">June</option>
-                    <option value="07">July</option>
-                    <option value="08">August</option>
-                    <option value="09">September</option>
-                    <option value="10">October</option>
-                    <option value="11">November</option>
-                    <option value="12">December</option>
-                  </select>
-                  <select
-                    name="year"
-                    value={formData.year || ''}
-                    onChange={e => setFormData({ ...formData, year: e.target.value })}
-                    required
-                    style={{ flex: 1, padding: '10px', fontSize: '16px' }}
-                  >
-                    <option value="">Select year</option>
-                    <option value="2024">2024</option>
-                    <option value="2025">2025</option>
-                    <option value="2026">2026</option>
-                  </select>
-                </div>
+                <label>Payment For</label>
+                <input
+                  type="text"
+                  value={paymentDescription || 'Not specified by admin'}
+                  readOnly
+                  style={{ background: '#f5f5f5', color: '#333', cursor: 'not-allowed', fontWeight: '500' }}
+                />
               </div>
               <div className="form-group">
                 <label>Amount (₹)</label>
@@ -206,27 +190,50 @@ Thank you for your payment!
                   <small style={{ color: 'red' }}>No payable amount assigned. Please contact admin.</small>
                 )}
               </div>
-              {formData.month && formData.year && (
+              {payableAmount > 0 && (
                 <div style={{ textAlign: 'center', margin: '20px 0' }}>
                   <div style={{ fontWeight: 'bold', marginBottom: 8 }}>UPI QR Code</div>
                   <QRCodeCanvas
-                    value={`upi://pay?pa=mysociety@okicici&pn=Smart Community&am=${payableAmount}&cu=INR&tn=Rent payment for ${formData.month}-${formData.year}`}
+                    value={`upi://pay?pa=soujanyapoojari1513@oksbi&pn=Soujanya Poojari&am=${payableAmount}&cu=INR&tn=${encodeURIComponent(paymentDescription || 'Society Payment')}`}
                     size={200}
                   />
                   <div style={{ marginTop: 10, fontSize: 16 }}>
                     <b>Scan to Pay</b><br />
-                    <span>Amount: ₹{payableAmount}</span>
+                    <span>Amount: ₹{payableAmount}</span><br />
+                    <small style={{ color: '#666', fontSize: '12px' }}>UPI ID: soujanyapoojari1513@oksbi</small>
                   </div>
                 </div>
               )}
+              
+              <div className="form-group">
+                <label>UTR Number (UPI Transaction Reference) *</label>
+                <input
+                  type="text"
+                  name="utr"
+                  value={formData.utr}
+                  onChange={handleChange}
+                  placeholder="Enter 12-digit UTR number after payment"
+                  required
+                  className="form-control"
+                />
+                <small style={{ color: '#666' }}>
+                  After scanning QR and paying, enter the UTR/Transaction ID from your payment app
+                </small>
+              </div>
+              
               <div className="modal-actions">
-                <button type="submit" className="btn btn-primary">
-                  Pay Now
+                <button 
+                  type="submit" 
+                  className="btn btn-primary"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Submitting...' : 'Submit Payment Proof'}
                 </button>
                 <button
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => setShowModal(false)}
+                  disabled={isSubmitting}
                 >
                   Cancel
                 </button>
