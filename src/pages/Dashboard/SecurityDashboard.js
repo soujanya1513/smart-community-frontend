@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { QrReader } from 'react-qr-reader';
 import Layout from '../../components/Layout';
 import api from '../../services/api';
 
@@ -8,6 +9,7 @@ const SecurityDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [qrCode, setQrCode] = useState('');
   const [verifying, setVerifying] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   useEffect(() => {
     fetchPendingVisitors();
@@ -56,6 +58,28 @@ const SecurityDashboard = () => {
     }
   };
 
+  const handleScan = async (result, error) => {
+    if (result) {
+      const scannedText = result?.text;
+      if (scannedText && scannedText.startsWith('VISITOR-')) {
+        setShowScanner(false);
+        setVerifying(true);
+        try {
+          const response = await api.verifyVisitor(scannedText);
+          setMessage(`✅ ${response.data.visitorName} verified and checked in!`);
+          setQrCode('');
+          fetchPendingVisitors();
+          setTimeout(() => setMessage(''), 3000);
+        } catch (err) {
+          setMessage(err.response?.data?.message || 'Invalid QR code - not found in system');
+          setTimeout(() => setMessage(''), 3000);
+        } finally {
+          setVerifying(false);
+        }
+      }
+    }
+  };
+
   return (
     <Layout title="Security - Visitor Check-In">
       <div className="content-card">
@@ -71,15 +95,30 @@ const SecurityDashboard = () => {
         <div style={{ backgroundColor: '#f8f9fa', padding: '20px', borderRadius: '8px', marginBottom: '30px', border: '2px solid #007bff' }}>
           <h3 style={{ marginTop: 0, color: '#007bff' }}>🔍 Scan Visitor QR Code</h3>
           
-          <div style={{ backgroundColor: '#fff3cd', padding: '15px', borderRadius: '5px', marginBottom: '20px', border: '1px solid #ffc107' }}>
-            <p style={{ margin: 0, color: '#856404', fontWeight: 'bold' }}>📱 How to scan:</p>
-            <ol style={{ marginBottom: 0, paddingLeft: '20px', color: '#856404' }}>
-              <li>Ask visitor to show their QR code on phone</li>
-              <li>Use your phone camera to scan it</li>
-              <li>Copy the text that appears (starts with "VISITOR-")</li>
-              <li>Paste it below and click Verify</li>
-            </ol>
+          <div style={{ marginBottom: '20px' }}>
+            <button 
+              className={`btn ${showScanner ? 'btn-secondary' : 'btn-primary'}`}
+              onClick={() => setShowScanner(!showScanner)}
+              style={{ width: '100%', padding: '15px', fontSize: '18px', fontWeight: 'bold' }}
+            >
+              {showScanner ? '📷 Stop Camera' : '📷 Open Camera to Scan'}
+            </button>
           </div>
+
+          {showScanner && (
+            <div style={{ marginBottom: '20px', border: '3px solid #007bff', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#000' }}>
+              <QrReader
+                onResult={handleScan}
+                constraints={{ facingMode: 'environment' }}
+                style={{ width: '100%' }}
+              />
+              <div style={{ padding: '10px', backgroundColor: '#007bff', color: 'white', textAlign: 'center', fontWeight: 'bold' }}>
+                📱 Point camera at visitor's QR code
+              </div>
+            </div>
+          )}
+
+          <div style={{ textAlign: 'center', margin: '15px 0', color: '#666', fontWeight: 'bold' }}>OR MANUAL ENTRY</div>
 
           <form onSubmit={handleVerifyQR}>
             <div style={{ marginBottom: '15px' }}>
@@ -95,7 +134,7 @@ const SecurityDashboard = () => {
             </div>
             <button 
               type="submit" 
-              className="btn btn-primary" 
+              className="btn btn-secondary" 
               disabled={verifying || !qrCode.trim()}
               style={{ width: '100%', padding: '15px', fontSize: '18px', fontWeight: 'bold' }}
             >
@@ -159,6 +198,7 @@ const SecurityDashboard = () => {
         <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#e8f5e9', borderRadius: '5px', border: '1px solid #4CAF50' }}>
           <h4 style={{ marginTop: 0, color: '#2e7d32' }}>✅ Security Features:</h4>
           <ul style={{ marginBottom: 0, paddingLeft: '20px', color: '#2e7d32' }}>
+            <li>Use camera to scan QR codes directly - fastest method</li>
             <li>QR codes are validated against resident-generated codes only</li>
             <li>Invalid or fake QR codes will be rejected</li>
             <li>Each QR code can only be used once</li>
