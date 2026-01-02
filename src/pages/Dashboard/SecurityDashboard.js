@@ -76,6 +76,11 @@ const SecurityDashboard = () => {
         } finally {
           setVerifying(false);
         }
+      } else if (scannedText) {
+        // Scanned something but not a visitor QR code
+        setShowScanner(false);
+        setMessage('❌ Not a valid visitor QR code. Must start with VISITOR-');
+        setTimeout(() => setMessage(''), 3000);
       }
     }
   };
